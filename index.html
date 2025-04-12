@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flowmodoro & To-Do</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Custom styles - Dark Theme */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Dark Gray/Black background */
+            color: #f3f4f6; /* Light gray text default */
+        }
+        .tab-active {
+            border-bottom-color: #3b82f6; /* Blue border */
+            color: #60a5fa; /* Lighter Blue text */
+            font-weight: 600;
+        }
+        #timer-display {
+            font-size: 4rem;
+            font-weight: 700;
+            color: #e5e7eb;
+            min-width: 180px; /* Ensure space for HH:MM:SS */
+            text-align: center;
+        }
+        .todo-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            background-color: #374151;
+            color: #d1d5db;
+        }
+        .todo-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+        }
+        .completed-todo {
+            text-decoration: line-through;
+            color: #6b7280;
+        }
+        .modal {
+            /* Ensure it's hidden by default using CSS */
+            display: none;
+            position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7);
+            /* Flex properties moved to JS when showing */
+            justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background-color: #1f2937; color: #d1d5db; margin: auto; padding: 2rem; border-radius: 0.5rem; width: 90%; max-width: 500px; position: relative; border: 1px solid #4b5563;
+        }
+        .modal-close {
+            position: absolute; top: 1rem; right: 1rem; font-size: 1.5rem; cursor: pointer; color: #9ca3af;
+        }
+        .modal-close:hover { color: #e5e7eb; }
+        .priority-High { border-left: 4px solid #ef4444; } /* Red */
+        .priority-Medium { border-left: 4px solid #f97316; } /* Orange */
+        .priority-Low { border-left: 4px solid #3b82f6; } /* Blue */
+        input::placeholder, select { color: #9ca3af; }
+        select option { background-color: #374151; color: #f3f4f6; }
+        /* Button specific styles */
+        .btn {
+             font-weight: bold; padding-top: 0.5rem; padding-bottom: 0.5rem; padding-left: 1.5rem; padding-right: 1.5rem; border-radius: 0.5rem; transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); /* Subtle shadow */
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background-color: #2563eb; color: white; } /* Blue */
+        .btn-primary:hover:not(:disabled) { background-color: #1d4ed8; }
+        .btn-secondary { background-color: #4b5563; color: white; } /* Gray */
+        .btn-secondary:hover:not(:disabled) { background-color: #374151; }
+        .btn-warning { background-color: #f59e0b; color: #1f2937; } /* Yellow */
+        .btn-warning:hover:not(:disabled) { background-color: #d97706; }
+        .btn-success { background-color: #10b981; color: white; } /* Green */
+        .btn-success:hover:not(:disabled) { background-color: #059669; }
+        .btn-danger { background-color: #ef4444; color: white; } /* Red */
+        .btn-danger:hover:not(:disabled) { background-color: #dc2626; }
+        .btn-small { padding-top: 0.25rem; padding-bottom: 0.25rem; padding-left: 0.75rem; padding-right: 0.75rem; font-size: 0.875rem; }
+        /* Session Log Styles */
+        #session-log-container { max-height: 200px; overflow-y: auto; border: 1px solid #374151; border-radius: 0.375rem; padding: 0.5rem; margin-top: 1rem; }
+        .session-entry { background-color: #374151; padding: 0.5rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.5rem; font-size: 0.875rem; display: flex; justify-content: space-between; align-items: center; }
+        .session-time { color: #9ca3af; }
+        .session-duration { font-weight: 500; color: #e5e7eb; }
+
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-2xl bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700">
+        <h1 class="text-3xl font-bold text-center text-gray-100 mb-6">Flowmodoro & To-Do</h1>
+
+        <div class="border-b border-gray-700 mb-6">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <button id="tab-timer" class="tab-active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500" onclick="switchTab('timer')">
+                    Flowmodoro Timer
+                </button>
+                <button id="tab-todo" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500" onclick="switchTab('todo')">
+                    To-Do Lists
+                </button>
+            </nav>
+        </div>
+
+        <div>
+            <div id="content-timer">
+                <div class="flex flex-col items-center space-y-4">
+                    <div id="timer-mode" class="text-xl font-semibold text-gray-300 h-7">Ready</div>
+
+                    <div id="timer-display" class="font-mono">00:00</div>
+
+                     <div id="break-info" class="text-lg text-blue-400 h-6 text-center"></div>
+
+                    <div class="flex space-x-4 mt-2">
+                        <button id="main-action-button" class="btn btn-primary">
+                            Start Work
+                        </button>
+                        <button id="reset-button" class="btn btn-secondary">
+                            Reset Session
+                        </button>
+                         <button id="skip-break-button" class="btn btn-secondary hidden">
+                            Skip Break
+                        </button>
+                    </div>
+
+                    <div class="mt-6 text-center w-full px-4">
+                         <h3 class="text-sm font-medium text-gray-400">Total Work Time Accumulated:</h3>
+                         <div id="total-work-time" class="text-lg font-semibold text-gray-200 font-mono">00:00:00</div>
+                         <button id="reset-total-work-button" class="btn btn-danger btn-small mt-2">Reset Total & History</button>
+
+                         <h3 class="text-sm font-medium text-gray-400 mt-4">Work Session History:</h3>
+                         <div id="session-log-container" class="w-full text-left">
+                             <ul id="session-log-list">
+                                 <li id="no-sessions-message" class="text-gray-500 text-center text-sm py-4">No work sessions recorded yet.</li>
+                             </ul>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-todo" class="hidden">
+                <div class="mb-6 p-4 border border-gray-700 rounded-lg bg-gray-700">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-200">Add New To-Do Card</h3>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <input type="text" id="new-card-title" placeholder="Card Title (e.g., Project Alpha)" class="flex-grow p-2 border border-gray-600 rounded-md bg-gray-800 text-gray-100 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500">
+                        <select id="new-card-priority" class="p-2 border border-gray-600 rounded-md bg-gray-800 text-gray-100 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="Low">Low Priority</option>
+                            <option value="Medium" selected>Medium Priority</option>
+                            <option value="High">High Priority</option>
+                        </select>
+                        <button id="add-card-button" class="btn btn-success">
+                            Add Card
+                        </button>
+                    </div>
+                     <p id="add-card-error" class="text-red-400 text-sm mt-2 hidden">Please enter a title for the card.</p>
+                </div>
+
+                <h3 class="text-lg font-semibold mb-3 text-gray-200">Your To-Do Cards</h3>
+                <div id="card-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="todo-card p-4 rounded-lg shadow cursor-pointer border-l-4 border-blue-500 hidden">
+                        <h4 class="font-semibold text-gray-100">Card Title</h4>
+                        <p class="text-sm text-gray-400">Priority: Medium</p>
+                        <p class="text-sm text-gray-400 mt-1">Tasks: 0</p>
+                    </div>
+                </div>
+                 <p id="no-cards-message" class="text-gray-400 text-center mt-4 hidden">No to-do cards yet. Add one above!</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="todo-modal" class="modal">
+        <div class="modal-content relative">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-card-title" class="text-2xl font-bold mb-4 text-gray-100">Card Title</h2>
+            <p id="modal-card-priority" class="text-sm text-gray-400 mb-4">Priority: Medium</p>
+
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="new-todo-text" placeholder="Add a new task..." class="flex-grow p-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500">
+                <button id="add-todo-item-button" class="btn btn-primary">Add</button>
+            </div>
+             <p id="add-todo-error" class="text-red-400 text-sm mb-2 hidden">Please enter task text.</p>
+
+            <ul id="modal-todo-list" class="space-y-2 max-h-60 overflow-y-auto pr-2 border-t border-b border-gray-700 py-2">
+                <li class="flex items-center justify-between p-2 border-b border-gray-700 last:border-b-0 hidden">
+                    <span class="flex-grow mr-2 text-gray-200 cursor-pointer">Task text</span>
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                        <button class="text-sm" title="Toggle Complete"><i class="fas fa-check text-green-400 hover:text-green-300"></i></button>
+                        <button class="text-sm" title="Delete Task"><i class="fas fa-trash text-red-500 hover:text-red-400"></i></button>
+                    </div>
+                </li>
+            </ul>
+             <p id="no-todos-message" class="text-gray-400 text-center mt-4 hidden">No tasks in this list yet.</p>
+
+             <button id="delete-card-button" class="btn btn-danger mt-6 w-full sm:w-auto">
+                 Delete This Card
+             </button>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const tabTimer = document.getElementById('tab-timer');
+        const tabTodo = document.getElementById('tab-todo');
+        const contentTimer = document.getElementById('content-timer');
+        const contentTodo = document.getElementById('content-todo');
+
+        // Timer Elements
+        const timerModeDisplay = document.getElementById('timer-mode');
+        const timerDisplay = document.getElementById('timer-display');
+        const mainActionButton = document.getElementById('main-action-button');
+        const resetButton = document.getElementById('reset-button');
+        const skipBreakButton = document.getElementById('skip-break-button');
+        const breakInfoDisplay = document.getElementById('break-info');
+        const totalWorkTimeDisplay = document.getElementById('total-work-time');
+        const resetTotalWorkButton = document.getElementById('reset-total-work-button');
+        const sessionLogList = document.getElementById('session-log-list');
+        const noSessionsMessage = document.getElementById('no-sessions-message');
+
+
+        // To-Do Card Elements
+        const newCardTitleInput = document.getElementById('new-card-title');
+        const newCardPriorityInput = document.getElementById('new-card-priority');
+        const addCardButton = document.getElementById('add-card-button');
+        const addCardError = document.getElementById('add-card-error');
+        const cardListDiv = document.getElementById('card-list');
+        const noCardsMessage = document.getElementById('no-cards-message');
+
+        // To-Do Modal Elements
+        const todoModal = document.getElementById('todo-modal');
+        const modalCardTitle = document.getElementById('modal-card-title');
+        const modalCardPriority = document.getElementById('modal-card-priority');
+        const newTodoTextInput = document.getElementById('new-todo-text');
+        const addTodoItemButton = document.getElementById('add-todo-item-button');
+        const addTodoError = document.getElementById('add-todo-error');
+        const modalTodoList = document.getElementById('modal-todo-list');
+        const noTodosMessage = document.getElementById('no-todos-message');
+        const deleteCardButton = document.getElementById('delete-card-button');
+
+        // --- Timer State ---
+        let timerInterval = null;
+        let elapsedWorkSeconds = 0;
+        let breakDurationSeconds = 0;
+        let breakTimeRemainingSeconds = 0;
+        let totalWorkSeconds = parseInt(localStorage.getItem('flowmodoro_totalWorkSeconds') || '0');
+        let currentSessionStartTime = null; // Track start time of current work session
+        let workSessions = JSON.parse(localStorage.getItem('flowmodoro_workSessions') || '[]'); // Load sessions
+        let isRunning = false;
+        let isWorkMode = true;
+        let currentCardId = null; // For To-Do modal
+
+        // --- To-Do State ---
+        let todoCards = JSON.parse(localStorage.getItem('flowmodoro_todoCards') || '[]');
+
+        // --- Constants ---
+        const BREAK_PERCENTAGE = 0.28;
+
+        // --- Initialization ---
+        function initializeApp() {
+            updateDisplays();
+            renderTodoCards();
+            renderWorkSessions(); // Render session log
+            const initialTab = 'timer';
+            switchTab(initialTab);
+            setupEventListeners();
+            updateButtonStates();
+            // Ensure modal is hidden on initial load (redundant if CSS is correct, but safe)
+            closeModal();
+        }
+
+        // --- Event Listeners ---
+        function setupEventListeners() {
+            // Timer Controls
+            mainActionButton.addEventListener('click', handleMainAction);
+            resetButton.addEventListener('click', handleResetSession);
+            skipBreakButton.addEventListener('click', handleSkipBreak);
+            resetTotalWorkButton.addEventListener('click', handleResetTotalWork);
+
+            // To-Do Card Adding
+            addCardButton.addEventListener('click', handleAddCard);
+            newCardTitleInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAddCard(); });
+
+            // To-Do Item Adding (within modal)
+            addTodoItemButton.addEventListener('click', handleAddTodoItem);
+            newTodoTextInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAddTodoItem(); });
+
+            // Delete Card Button (within modal) - Listener attached here
+            deleteCardButton.addEventListener('click', handleDeleteCard);
+        }
+
+        // --- Utility Functions ---
+        function formatTime(totalSeconds, showHours = false) {
+            if (isNaN(totalSeconds) || totalSeconds < 0) { totalSeconds = 0; }
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const H = hours.toString().padStart(2, '0');
+            const M = minutes.toString().padStart(2, '0');
+            const S = seconds.toString().padStart(2, '0');
+            return showHours ? `${H}:${M}:${S}` : `${M}:${S}`;
+        }
+
+        function formatDateTime(isoString) {
+             if (!isoString) return '';
+             try {
+                const date = new Date(isoString);
+                // Using locale-specific formats
+                const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+                const timeOptions = { hour: '2-digit', minute: '2-digit' };
+                return `${date.toLocaleDateString(undefined, dateOptions)} ${date.toLocaleTimeString(undefined, timeOptions)}`;
+             } catch (e) {
+                 console.error("Error formatting date:", e);
+                 return isoString; // Fallback
+             }
+        }
+
+
+        function playNotificationSound(isBreakStart = false) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(isBreakStart ? 440 : 660, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } catch (e) { console.error("Could not play notification sound:", e); }
+        }
+
+        // --- Core Timer Logic ---
+
+        function handleMainAction() {
+            if (isWorkMode) {
+                if (isRunning) { stopWorkTimer(); }
+                else { startWorkTimer(); }
+            } else {
+                if (!isRunning && breakDurationSeconds > 0) { startBreakTimer(); }
+            }
+        }
+
+        function startWorkTimer() {
+            if (isRunning) return;
+            isWorkMode = true;
+            isRunning = true;
+            currentSessionStartTime = new Date().toISOString(); // Record start time
+            breakInfoDisplay.textContent = '';
+            timerModeDisplay.textContent = 'Working...';
+            updateButtonStates();
+            timerInterval = setInterval(() => {
+                elapsedWorkSeconds++;
+                updateDisplays();
+            }, 1000);
+        }
+
+        function stopWorkTimer() {
+            if (!isRunning || !isWorkMode) return;
+            clearInterval(timerInterval);
+            isRunning = false;
+            isWorkMode = false;
+
+            // --- Session Tracking ---
+            const endTime = new Date().toISOString();
+            if (currentSessionStartTime && elapsedWorkSeconds > 0) { // Only save if session actually ran
+                 const newSession = {
+                     id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                     startTime: currentSessionStartTime,
+                     endTime: endTime,
+                     durationSeconds: elapsedWorkSeconds
+                 };
+                 workSessions.push(newSession);
+                 localStorage.setItem('flowmodoro_workSessions', JSON.stringify(workSessions));
+                 renderWorkSessions(); // Update session log display
+            }
+             currentSessionStartTime = null; // Reset for next session
+            // --- End Session Tracking ---
+
+
+            // Update Total Work Time
+            totalWorkSeconds += elapsedWorkSeconds;
+            localStorage.setItem('flowmodoro_totalWorkSeconds', totalWorkSeconds.toString());
+
+            // Calculate and Store Break Time
+            breakDurationSeconds = Math.round(elapsedWorkSeconds * BREAK_PERCENTAGE);
+            breakTimeRemainingSeconds = breakDurationSeconds;
+
+            timerModeDisplay.textContent = 'Work Session Finished';
+            breakInfoDisplay.textContent = `Break: ${formatTime(breakDurationSeconds)}`;
+            playNotificationSound(true);
+            updateDisplays();
+            updateButtonStates();
+            // Reset elapsed work seconds *after* saving session and calculating break
+            elapsedWorkSeconds = 0;
+        }
+
+        function startBreakTimer() {
+            if (isRunning || isWorkMode || breakTimeRemainingSeconds <= 0) return;
+            isRunning = true;
+            isWorkMode = false;
+            timerModeDisplay.textContent = 'Break Time';
+            breakInfoDisplay.textContent = '';
+            updateButtonStates();
+            timerInterval = setInterval(() => {
+                if (breakTimeRemainingSeconds > 0) {
+                    breakTimeRemainingSeconds--;
+                    updateDisplays();
+                } else {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    isWorkMode = true;
+                    // elapsedWorkSeconds is already 0 from stopWorkTimer
+                    breakDurationSeconds = 0;
+                    timerModeDisplay.textContent = 'Ready';
+                    playNotificationSound(false);
+                    updateDisplays();
+                    updateButtonStates();
+                }
+            }, 1000);
+        }
+
+        function handleSkipBreak() {
+             if (isWorkMode) return;
+             clearInterval(timerInterval);
+             isRunning = false;
+             isWorkMode = true;
+             elapsedWorkSeconds = 0; // Ensure session timer is reset
+             breakDurationSeconds = 0;
+             breakTimeRemainingSeconds = 0;
+             currentSessionStartTime = null;
+             timerModeDisplay.textContent = 'Ready';
+             breakInfoDisplay.textContent = '';
+             updateDisplays();
+             updateButtonStates();
+        }
+
+
+        function handleResetSession() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            isWorkMode = true;
+            elapsedWorkSeconds = 0;
+            breakDurationSeconds = 0;
+            breakTimeRemainingSeconds = 0;
+            currentSessionStartTime = null; // Reset start time tracker
+            timerModeDisplay.textContent = 'Ready';
+            breakInfoDisplay.textContent = '';
+            updateDisplays();
+            updateButtonStates();
+            document.title = "Flowmodoro & To-Do";
+        }
+
+        function handleResetTotalWork() {
+            if (confirm("Are you sure you want to reset the total accumulated work time and clear all session history? This cannot be undone.")) {
+                totalWorkSeconds = 0;
+                workSessions = [];
+                localStorage.setItem('flowmodoro_totalWorkSeconds', '0');
+                localStorage.setItem('flowmodoro_workSessions', '[]');
+                updateDisplays();
+                renderWorkSessions();
+            }
+        }
+
+        // --- UI Update Functions ---
+
+        function updateDisplays() {
+            const displaySeconds = isWorkMode ? elapsedWorkSeconds : breakTimeRemainingSeconds;
+            timerDisplay.textContent = formatTime(displaySeconds);
+            totalWorkTimeDisplay.textContent = formatTime(totalWorkSeconds, true);
+
+            if (isRunning) {
+                 const modeText = isWorkMode ? 'Working' : 'Break';
+                 document.title = `${formatTime(displaySeconds)} - ${modeText} - Flowmodoro`;
+            } else if (!isWorkMode && breakDurationSeconds > 0) {
+                 document.title = `Break Pending - Flowmodoro`;
+            } else {
+                 document.title = "Flowmodoro & To-Do";
+            }
+        }
+
+        function updateButtonStates() {
+            const isBreakPending = !isWorkMode && !isRunning && breakDurationSeconds > 0;
+
+            if (isWorkMode && !isRunning) { // Ready
+                mainActionButton.textContent = 'Start Work';
+                mainActionButton.className = 'btn btn-primary';
+                mainActionButton.disabled = false;
+                mainActionButton.classList.remove('hidden');
+                skipBreakButton.classList.add('hidden');
+                resetButton.disabled = false; // Enable reset
+            } else if (isWorkMode && isRunning) { // Working
+                mainActionButton.textContent = 'Stop Work';
+                mainActionButton.className = 'btn btn-warning';
+                mainActionButton.disabled = false;
+                mainActionButton.classList.remove('hidden');
+                skipBreakButton.classList.add('hidden');
+                resetButton.disabled = false; // Enable reset
+            } else if (isBreakPending) { // Break pending
+                mainActionButton.textContent = 'Start Break';
+                mainActionButton.className = 'btn btn-success';
+                mainActionButton.disabled = false;
+                mainActionButton.classList.remove('hidden');
+                skipBreakButton.classList.remove('hidden'); // Show skip
+                resetButton.disabled = false; // Enable reset
+            } else if (!isWorkMode && isRunning) { // Break running
+                mainActionButton.classList.add('hidden');
+                mainActionButton.disabled = true;
+                skipBreakButton.classList.remove('hidden'); // Show skip
+                resetButton.disabled = false; // Enable reset
+            } else { // Fallback (shouldn't happen often)
+                 mainActionButton.textContent = 'Start Work';
+                 mainActionButton.className = 'btn btn-primary';
+                 mainActionButton.disabled = false;
+                 mainActionButton.classList.remove('hidden');
+                 skipBreakButton.classList.add('hidden');
+                 resetButton.disabled = false;
+            }
+        }
+
+        function renderWorkSessions() {
+            sessionLogList.innerHTML = '';
+            if (workSessions.length === 0) {
+                noSessionsMessage.classList.remove('hidden');
+                return;
+            }
+            noSessionsMessage.classList.add('hidden');
+            [...workSessions].reverse().forEach(session => {
+                const li = document.createElement('li');
+                li.classList.add('session-entry');
+                const timeSpan = document.createElement('span');
+                timeSpan.classList.add('session-time');
+                timeSpan.textContent = formatDateTime(session.startTime); // Use formatted date/time
+                const durationSpan = document.createElement('span');
+                durationSpan.classList.add('session-duration');
+                durationSpan.textContent = formatTime(session.durationSeconds);
+                li.appendChild(timeSpan);
+                li.appendChild(durationSpan);
+                sessionLogList.appendChild(li);
+            });
+        }
+
+
+        // --- Tab Switching Logic ---
+        function switchTab(tabName) {
+            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('tab-active', 'text-gray-200'));
+            document.querySelectorAll('nav button').forEach(btn => btn.classList.add('text-gray-400', 'hover:text-gray-200', 'hover:border-gray-500'));
+            if (tabName === 'timer') {
+                contentTimer.classList.remove('hidden');
+                contentTodo.classList.add('hidden');
+                tabTimer.classList.add('tab-active');
+                tabTimer.classList.remove('text-gray-400');
+            } else if (tabName === 'todo') {
+                contentTimer.classList.add('hidden');
+                contentTodo.classList.remove('hidden');
+                tabTodo.classList.add('tab-active');
+                tabTodo.classList.remove('text-gray-400');
+                renderTodoCards();
+            }
+        }
+
+        // --- To-Do List Logic ---
+        function saveTodoCards() {
+            localStorage.setItem('flowmodoro_todoCards', JSON.stringify(todoCards));
+        }
+        function renderTodoCards() {
+            cardListDiv.innerHTML = '';
+            if (todoCards.length === 0) {
+                 noCardsMessage.classList.remove('hidden'); return;
+            }
+            noCardsMessage.classList.add('hidden');
+            todoCards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('todo-card', 'p-4', 'rounded-lg', 'shadow', 'cursor-pointer', `priority-${card.priority}`);
+                cardElement.dataset.cardId = card.id;
+                const titleElement = document.createElement('h4');
+                titleElement.classList.add('font-semibold', 'text-gray-100', 'mb-1');
+                titleElement.textContent = card.title;
+                const priorityElement = document.createElement('p');
+                priorityElement.classList.add('text-sm', 'text-gray-400');
+                priorityElement.textContent = `Priority: ${card.priority}`;
+                const tasksElement = document.createElement('p');
+                tasksElement.classList.add('text-sm', 'text-gray-400', 'mt-1');
+                const completedCount = card.todos.filter(t => t.completed).length;
+                tasksElement.textContent = `Tasks: ${completedCount} / ${card.todos.length}`;
+                cardElement.appendChild(titleElement);
+                cardElement.appendChild(priorityElement);
+                cardElement.appendChild(tasksElement);
+                cardElement.addEventListener('click', () => openModal(card.id));
+                cardListDiv.appendChild(cardElement);
+            });
+        }
+        function handleAddCard() {
+            const title = newCardTitleInput.value.trim();
+            const priority = newCardPriorityInput.value;
+            if (!title) { addCardError.classList.remove('hidden'); newCardTitleInput.focus(); return; }
+            addCardError.classList.add('hidden');
+            const newCard = { id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, title: title, priority: priority, todos: [] };
+            todoCards.push(newCard);
+            saveTodoCards();
+            renderTodoCards();
+            newCardTitleInput.value = '';
+            newCardPriorityInput.value = 'Medium';
+        }
+        function handleDeleteCard() {
+             if (!currentCardId) { console.error("Delete button clicked but no currentCardId is set."); return; }
+             const cardToDelete = findCardById(currentCardId);
+             if (!cardToDelete) { console.error("Card to delete not found with ID:", currentCardId); return; }
+             if (confirm(`Are you sure you want to delete the card "${cardToDelete.title}" and all its tasks?`)) {
+                 todoCards = todoCards.filter(card => card.id !== currentCardId);
+                 saveTodoCards();
+                 renderTodoCards();
+                 closeModal();
+             }
+        }
+
+        // --- To-Do Modal Logic ---
+        function openModal(cardId) {
+            const card = findCardById(cardId);
+            if (!card) return;
+            currentCardId = cardId;
+            modalCardTitle.textContent = card.title;
+            modalCardPriority.textContent = `Priority: ${card.priority}`;
+            renderModalTodos(card.todos);
+            newTodoTextInput.value = '';
+            addTodoError.classList.add('hidden');
+            // Set display to flex when opening
+            todoModal.style.display = 'flex';
+        }
+        function closeModal() {
+            currentCardId = null;
+            // Set display to none when closing
+            todoModal.style.display = 'none';
+        }
+        function findCardById(cardId) {
+            return todoCards.find(card => card.id === cardId);
+        }
+        function renderModalTodos(todos) {
+            modalTodoList.innerHTML = '';
+             if (todos.length === 0) {
+                noTodosMessage.classList.remove('hidden');
+                modalTodoList.classList.remove('border-t', 'border-b'); return;
+            }
+            noTodosMessage.classList.add('hidden');
+            modalTodoList.classList.add('border-t', 'border-b');
+            todos.forEach(todo => {
+                const listItem = document.createElement('li');
+                listItem.classList.add('flex', 'items-center', 'justify-between', 'p-2', 'border-b', 'border-gray-700', 'last:border-b-0');
+                listItem.dataset.todoId = todo.id;
+                const textSpan = document.createElement('span');
+                textSpan.classList.add('flex-grow', 'mr-2', 'cursor-pointer', 'text-gray-200');
+                textSpan.textContent = todo.text;
+                 if (todo.completed) { textSpan.classList.add('completed-todo'); }
+                 textSpan.addEventListener('click', () => handleToggleTodo(todo.id));
+                const buttonDiv = document.createElement('div');
+                buttonDiv.classList.add('flex', 'items-center', 'space-x-2', 'flex-shrink-0');
+                const toggleButton = document.createElement('button');
+                toggleButton.classList.add('text-sm');
+                 toggleButton.innerHTML = todo.completed ? '<i class="fas fa-undo text-yellow-400 hover:text-yellow-300"></i>' : '<i class="fas fa-check text-green-400 hover:text-green-300"></i>';
+                toggleButton.title = todo.completed ? 'Mark as Incomplete' : 'Mark as Complete';
+                toggleButton.addEventListener('click', () => handleToggleTodo(todo.id));
+                const deleteButton = document.createElement('button');
+                deleteButton.classList.add('text-sm');
+                deleteButton.innerHTML = '<i class="fas fa-trash text-red-500 hover:text-red-400"></i>';
+                deleteButton.title = 'Delete Task';
+                deleteButton.addEventListener('click', () => handleDeleteTodo(todo.id));
+                buttonDiv.appendChild(toggleButton);
+                buttonDiv.appendChild(deleteButton);
+                listItem.appendChild(textSpan);
+                listItem.appendChild(buttonDiv);
+                modalTodoList.appendChild(listItem);
+            });
+        }
+        function handleAddTodoItem() {
+             if (!currentCardId) return;
+            const text = newTodoTextInput.value.trim();
+             if (!text) { addTodoError.classList.remove('hidden'); newTodoTextInput.focus(); return; }
+             addTodoError.classList.add('hidden');
+            const card = findCardById(currentCardId);
+            if (!card) return;
+            const newTodo = { id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, text: text, completed: false };
+            card.todos.push(newTodo);
+            saveTodoCards();
+            renderModalTodos(card.todos);
+            renderTodoCards();
+            newTodoTextInput.value = '';
+            newTodoTextInput.focus();
+        }
+        function handleToggleTodo(todoId) {
+            if (!currentCardId) return;
+            const card = findCardById(currentCardId);
+            if (!card) return;
+            const todo = card.todos.find(t => t.id === todoId);
+            if (todo) {
+                todo.completed = !todo.completed;
+                saveTodoCards();
+                renderModalTodos(card.todos);
+                renderTodoCards();
+            }
+        }
+        function handleDeleteTodo(todoId) {
+            if (!currentCardId) return;
+            const card = findCardById(currentCardId);
+            if (!card) return;
+            card.todos = card.todos.filter(t => t.id !== todoId);
+            saveTodoCards();
+            renderModalTodos(card.todos);
+            renderTodoCards();
+        }
+
+        // --- Global Event Listener for Modal Closing ---
+        window.addEventListener('click', (event) => { if (event.target === todoModal) { closeModal(); } });
+        window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && todoModal.style.display === 'flex') { closeModal(); } });
+
+        // --- Start the App ---
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+    </script>
+
+</body>
+</html>
