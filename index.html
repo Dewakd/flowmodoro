@@ -95,7 +95,10 @@
                     Flowmodoro Timer
                 </button>
                 <button id="tab-todo" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500" onclick="switchTab('todo')">
-                    To-Do Lists
+                    Active To-Do Lists
+                </button>
+                <button id="tab-completed" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500" onclick="switchTab('completed')">
+                    Completed Tasks
                 </button>
             </nav>
         </div>
@@ -150,18 +153,47 @@
                             Add Card
                         </button>
                     </div>
-                     <p id="add-card-error" class="text-red-400 text-sm mt-2 hidden">Please enter a title for the card.</p>
+                    <p id="add-card-error" class="text-red-400 text-sm mt-2 hidden">Please enter a title for the card.</p>
                 </div>
 
-                <h3 class="text-lg font-semibold mb-3 text-gray-200">Your To-Do Cards</h3>
-                <div id="card-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div class="todo-card p-4 rounded-lg shadow cursor-pointer border-l-4 border-blue-500 hidden">
-                        <h4 class="font-semibold text-gray-100">Card Title</h4>
-                        <p class="text-sm text-gray-400">Priority: Medium</p>
-                        <p class="text-sm text-gray-400 mt-1">Tasks: 0</p>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-200">Your To-Do Cards</h3>
+                    <div class="flex gap-3">
+                        <select id="todo-priority-filter" class="p-2 border border-gray-600 rounded-md bg-gray-800 text-gray-100 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="all">All Priorities</option>
+                            <option value="High">High Priority</option>
+                            <option value="Medium">Medium Priority</option>
+                            <option value="Low">Low Priority</option>
+                        </select>
+                        <select id="todo-completion-filter" class="p-2 border border-gray-600 rounded-md bg-gray-800 text-gray-100 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="all">All Tasks</option>
+                            <option value="incomplete">Has Incomplete</option>
+                            <option value="inProgress">In Progress</option>
+                            <option value="empty">No Tasks</option>
+                        </select>
                     </div>
                 </div>
-                 <p id="no-cards-message" class="text-gray-400 text-center mt-4 hidden">No to-do cards yet. Add one above!</p>
+
+                <div id="card-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                </div>
+                <p id="no-cards-message" class="text-gray-400 text-center mt-4 hidden">No to-do cards yet. Add one above!</p>
+            </div>
+
+            <div id="content-completed" class="hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-200">Completed To-Do Cards</h3>
+                    <div class="flex gap-3">
+                        <select id="completed-priority-filter" class="p-2 border border-gray-600 rounded-md bg-gray-800 text-gray-100 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="all">All Priorities</option>
+                            <option value="High">High Priority</option>
+                            <option value="Medium">Medium Priority</option>
+                            <option value="Low">Low Priority</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="completed-card-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                </div>
+                <p id="no-completed-cards-message" class="text-gray-400 text-center mt-4 hidden">No completed cards yet!</p>
             </div>
         </div>
     </div>
@@ -199,8 +231,10 @@
         // --- DOM Elements ---
         const tabTimer = document.getElementById('tab-timer');
         const tabTodo = document.getElementById('tab-todo');
+        const tabCompleted = document.getElementById('tab-completed');
         const contentTimer = document.getElementById('content-timer');
         const contentTodo = document.getElementById('content-todo');
+        const contentCompleted = document.getElementById('content-completed');
 
         // Timer Elements
         const timerModeDisplay = document.getElementById('timer-mode');
@@ -256,12 +290,12 @@
         function initializeApp() {
             updateDisplays();
             renderTodoCards();
-            renderWorkSessions(); // Render session log
+            renderWorkSessions();
+            setupFilterListeners();
             const initialTab = 'timer';
             switchTab(initialTab);
             setupEventListeners();
             updateButtonStates();
-            // Ensure modal is hidden on initial load (redundant if CSS is correct, but safe)
             closeModal();
         }
 
@@ -542,17 +576,26 @@
         function switchTab(tabName) {
             document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('tab-active', 'text-gray-200'));
             document.querySelectorAll('nav button').forEach(btn => btn.classList.add('text-gray-400', 'hover:text-gray-200', 'hover:border-gray-500'));
+            
+            // Hide all content sections
+            contentTimer.classList.add('hidden');
+            contentTodo.classList.add('hidden');
+            contentCompleted.classList.add('hidden');
+
             if (tabName === 'timer') {
                 contentTimer.classList.remove('hidden');
-                contentTodo.classList.add('hidden');
                 tabTimer.classList.add('tab-active');
                 tabTimer.classList.remove('text-gray-400');
             } else if (tabName === 'todo') {
-                contentTimer.classList.add('hidden');
                 contentTodo.classList.remove('hidden');
                 tabTodo.classList.add('tab-active');
                 tabTodo.classList.remove('text-gray-400');
                 renderTodoCards();
+            } else if (tabName === 'completed') {
+                document.getElementById('content-completed').classList.remove('hidden');
+                document.getElementById('tab-completed').classList.add('tab-active');
+                document.getElementById('tab-completed').classList.remove('text-gray-400');
+                renderCompletedCards();
             }
         }
 
@@ -562,11 +605,15 @@
         }
         function renderTodoCards() {
             cardListDiv.innerHTML = '';
-            if (todoCards.length === 0) {
-                 noCardsMessage.classList.remove('hidden'); return;
+            const filteredCards = filterAndSortCards(todoCards);
+
+            if (filteredCards.length === 0) {
+                noCardsMessage.classList.remove('hidden');
+                return;
             }
+
             noCardsMessage.classList.add('hidden');
-            todoCards.forEach(card => {
+            filteredCards.forEach(card => {
                 const cardElement = document.createElement('div');
                 cardElement.classList.add('todo-card', 'p-4', 'rounded-lg', 'shadow', 'cursor-pointer', `priority-${card.priority}`);
                 cardElement.dataset.cardId = card.id;
@@ -607,6 +654,7 @@
                  todoCards = todoCards.filter(card => card.id !== currentCardId);
                  saveTodoCards();
                  renderTodoCards();
+                 renderCompletedCards();
                  closeModal();
              }
         }
@@ -680,6 +728,7 @@
             saveTodoCards();
             renderModalTodos(card.todos);
             renderTodoCards();
+            renderCompletedCards();
             newTodoTextInput.value = '';
             newTodoTextInput.focus();
         }
@@ -693,6 +742,7 @@
                 saveTodoCards();
                 renderModalTodos(card.todos);
                 renderTodoCards();
+                renderCompletedCards();
             }
         }
         function handleDeleteTodo(todoId) {
@@ -703,11 +753,112 @@
             saveTodoCards();
             renderModalTodos(card.todos);
             renderTodoCards();
+            renderCompletedCards();
         }
 
         // --- Global Event Listener for Modal Closing ---
         window.addEventListener('click', (event) => { if (event.target === todoModal) { closeModal(); } });
         window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && todoModal.style.display === 'flex') { closeModal(); } });
+
+        function renderCompletedCards() {
+            const completedCardList = document.getElementById('completed-card-list');
+            const noCompletedMessage = document.getElementById('no-completed-cards-message');
+            completedCardList.innerHTML = '';
+
+            const filteredCards = filterAndSortCards(todoCards, true);
+
+            if (filteredCards.length === 0) {
+                noCompletedMessage.classList.remove('hidden');
+                return;
+            }
+
+            noCompletedMessage.classList.add('hidden');
+            filteredCards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('todo-card', 'p-4', 'rounded-lg', 'shadow', 'cursor-pointer', `priority-${card.priority}`);
+                cardElement.dataset.cardId = card.id;
+
+                const titleElement = document.createElement('h4');
+                titleElement.classList.add('font-semibold', 'text-gray-100', 'mb-1');
+                titleElement.textContent = card.title;
+
+                const priorityElement = document.createElement('p');
+                priorityElement.classList.add('text-sm', 'text-gray-400');
+                priorityElement.textContent = `Priority: ${card.priority}`;
+
+                const tasksElement = document.createElement('p');
+                tasksElement.classList.add('text-sm', 'text-gray-400', 'mt-1');
+                tasksElement.textContent = `Tasks: ${card.todos.length} / ${card.todos.length} (Completed)`;
+
+                cardElement.appendChild(titleElement);
+                cardElement.appendChild(priorityElement);
+                cardElement.appendChild(tasksElement);
+                cardElement.addEventListener('click', () => openModal(card.id));
+                completedCardList.appendChild(cardElement);
+            });
+        }
+
+        // --- Filter Logic ---
+        function setupFilterListeners() {
+            // Set up filter change listeners
+            document.getElementById('todo-priority-filter').addEventListener('change', renderTodoCards);
+            document.getElementById('todo-completion-filter').addEventListener('change', renderTodoCards);
+            document.getElementById('completed-priority-filter').addEventListener('change', renderCompletedCards);
+        }
+
+        function filterAndSortCards(cards, isCompletedView = false) {
+            let filteredCards = [...cards];
+            
+            if (isCompletedView) {
+                // For completed view, only show cards with all todos completed
+                filteredCards = filteredCards.filter(card => 
+                    card.todos.length > 0 && card.todos.every(todo => todo.completed)
+                );
+                
+                // Apply priority filter
+                const priorityFilter = document.getElementById('completed-priority-filter').value;
+                if (priorityFilter !== 'all') {
+                    filteredCards = filteredCards.filter(card => card.priority === priorityFilter);
+                }
+            } else {
+                // For active view, filter out completely completed cards
+                filteredCards = filteredCards.filter(card => 
+                    card.todos.length === 0 || !card.todos.every(todo => todo.completed)
+                );
+
+                // Apply priority filter
+                const priorityFilter = document.getElementById('todo-priority-filter').value;
+                if (priorityFilter !== 'all') {
+                    filteredCards = filteredCards.filter(card => card.priority === priorityFilter);
+                }
+
+                // Apply completion filter
+                const completionFilter = document.getElementById('todo-completion-filter').value;
+                switch (completionFilter) {
+                    case 'incomplete':
+                        filteredCards = filteredCards.filter(card => 
+                            card.todos.some(todo => !todo.completed)
+                        );
+                        break;
+                    case 'inProgress':
+                        filteredCards = filteredCards.filter(card => 
+                            card.todos.length > 0 && 
+                            card.todos.some(todo => todo.completed) && 
+                            card.todos.some(todo => !todo.completed)
+                        );
+                        break;
+                    case 'empty':
+                        filteredCards = filteredCards.filter(card => card.todos.length === 0);
+                        break;
+                }
+            }
+
+            // Sort by priority (High > Medium > Low)
+            const priorityOrder = { 'High': 0, 'Medium': 1, 'Low': 2 };
+            filteredCards.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+            return filteredCards;
+        }
 
         // --- Start the App ---
         document.addEventListener('DOMContentLoaded', initializeApp);
