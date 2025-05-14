@@ -25,7 +25,7 @@
             font-size: 4rem;
             font-weight: 700;
             color: #e5e7eb;
-            min-width: 180px; /* Ensure space for HH:MM:SS */
+            min-width: 280px; /* Increased to ensure space for HH:MM:SS */
             text-align: center;
         }
         .todo-card {
@@ -286,7 +286,7 @@
         }
 
         // --- Utility Functions ---
-        function formatTime(totalSeconds, showHours = false) {
+        function formatTime(totalSeconds, showHours = true) {
             if (isNaN(totalSeconds) || totalSeconds < 0) { totalSeconds = 0; }
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -294,7 +294,7 @@
             const H = hours.toString().padStart(2, '0');
             const M = minutes.toString().padStart(2, '0');
             const S = seconds.toString().padStart(2, '0');
-            return showHours ? `${H}:${M}:${S}` : `${M}:${S}`;
+            return `${H}:${M}:${S}`;
         }
 
         function formatDateTime(isoString) {
